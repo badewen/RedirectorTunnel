@@ -1,0 +1,7 @@
+[
+  {
+    "key": "testing",
+    "type": "checkbox",
+    "defaultValue": false
+  }
+]
