@@ -1,7 +1,26 @@
 [
   {
-    "key": "testing",
-    "type": "checkbox",
-    "defaultValue": false
+    "group": "redirection",
+    "preferences": [
+      {
+        "key": "mapping",
+        "type": "string",
+        "defaultValue": "www.google.com:443|https://google.com; www.google.com:80|http://google.com:80; www.growtopia1.com:443|https://google.com"
+      }
+    ]
+  },
+  {
+    "group": "mode",
+    "preferences": [
+      {
+        "key": "redirect_mode",
+        "type": "select",
+        "items": [
+          {
+            "key": "http_redirect"
+          }
+        ]
+      }
+    ]
   }
 ]

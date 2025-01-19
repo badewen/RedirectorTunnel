@@ -17,25 +17,14 @@
 
 package io.github.badewen.powertunnel.plugins.redirector;
 
-import io.github.badewen.powertunnel.plugins.redirector.ProxyListener;
-
-import io.github.krlvm.powertunnel.sdk.ServerAdapter;
 import io.github.krlvm.powertunnel.sdk.configuration.Configuration;
 import io.github.krlvm.powertunnel.sdk.plugin.PowerTunnelPlugin;
 import io.github.krlvm.powertunnel.sdk.proxy.ProxyServer;
-import io.github.krlvm.powertunnel.sdk.proxy.ProxyStatus;
-import io.github.krlvm.powertunnel.sdk.types.FullAddress;
-import io.github.krlvm.powertunnel.sdk.utiities.TextReader;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.net.URL;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
 
 public class Redirector extends PowerTunnelPlugin {
 
@@ -45,19 +34,47 @@ public class Redirector extends PowerTunnelPlugin {
     public void onProxyInitialization(@NotNull ProxyServer proxy) {
         final Configuration config = readConfiguration();
 
-        HashMap<FullAddress, FullAddress> redirectionMaps = new HashMap<>();
+        HashMap<String, String> redirectionMaps = new HashMap<>();
 
-        redirectionMaps.put(
-                new FullAddress("127.0.0.1", 5678),
-                new FullAddress("127.0.0.1", 1234)
-        );
+        redirectionMaps = parseRedirectMapping(config.get("mapping", ""));
+
+        LOGGER.info("Loaded mapping " + config.get("mapping", ""));
+
+        proxy.setMITMEnabled(true);
+        proxy.setFullRequest(true);
+        proxy.setFullResponse(true);
 
         final ProxyListener proxyListener = new ProxyListener(
-            redirectionMaps
+            redirectionMaps,
+            proxy
         );
 
         LOGGER.info("registering proxy listener");
 
-        registerProxyListener(proxyListener);
+        registerProxyListener(proxyListener, 5);
+    }
+
+    public static HashMap<String, String> parseRedirectMapping(String mappings) {
+        HashMap<String, String> parsedMappings = new HashMap<>();
+        mappings = mappings.trim();
+
+        var mapping = mappings.split(";");
+
+        for (var redirectMap : mapping) {
+            var trimmedRedirectMap = redirectMap.trim();
+            var parsedRedirectMap = trimmedRedirectMap.split("\\|");
+
+            if (parsedRedirectMap.length < 2) {
+                LOGGER.error("Error parsing redirect mapping. malformed format. ({})", redirectMap);
+                continue;
+            }
+
+            parsedMappings.put(
+                    parsedRedirectMap[0],
+                    parsedRedirectMap[1]
+            );
+        }
+
+        return parsedMappings;
     }
 }

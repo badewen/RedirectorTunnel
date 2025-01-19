@@ -17,49 +17,71 @@
 
 package io.github.badewen.powertunnel.plugins.redirector;
 
+import io.github.krlvm.powertunnel.sdk.http.HttpHeaders;
 import io.github.krlvm.powertunnel.sdk.http.ProxyRequest;
+import io.github.krlvm.powertunnel.sdk.http.ProxyResponse;
 import io.github.krlvm.powertunnel.sdk.proxy.ProxyAdapter;
+import io.github.krlvm.powertunnel.sdk.proxy.ProxyServer;
 import io.github.krlvm.powertunnel.sdk.types.FullAddress;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
-import java.util.ArrayList;
-import java.util.List;
 
 public final class ProxyListener extends ProxyAdapter {
-    private static final Logger log = LoggerFactory.getLogger(ProxyListener.class);
-    private final HashMap<FullAddress, FullAddress> redirectionMaps;
-
-    protected final MITMListener mitmListener = new MITMListener();
+    private final HashMap<String, String> redirectionMaps;
+    private final ProxyServer proxyServer;
 
     public ProxyListener(
-            final HashMap<FullAddress, FullAddress> redirectionMaps
+            final HashMap<String, String> redirectionMaps,
+            ProxyServer proxyServer
     ) {
+        this.proxyServer = proxyServer;
         this.redirectionMaps = redirectionMaps;
-    }
-
-
-    @Override
-    public void onProxyToServerRequest(@NotNull ProxyRequest request) {
-        if(request.isBlocked() || request.isEncrypted()
-                || (request.address() != null && request.address().getPort() == 443)) return;
-
-        if (this.redirectionMaps.containsKey(request.address())) {
-            log.info("wow");
-        }
     }
 
     @Override
     public void onClientToProxyRequest(@NotNull ProxyRequest request) {
+        if (request.isBlocked()) return;
+        String responseAddress = formatFullAddress(request.address());
 
-    }
-
-    private class MITMListener extends ProxyAdapter {
-        @Override
-        public Boolean isMITMAllowed(@NotNull FullAddress address) {
-            return true;
+        if (this.redirectionMaps.containsKey(responseAddress) && !request.isEncrypted()) {
+            request.setResponse(proxyServer.getResponseBuilder("", 302)
+                    .header("Location", this.redirectionMaps.get(responseAddress))
+                    .header("Access-Control-Allow-Origin", "*")
+                    .build()
+            );
         }
     }
+
+    @Override
+    public void onProxyToClientResponse(@NotNull ProxyResponse response) {
+        if (!proxyServer.isMITMEnabled()) return;
+        if (!response.isDataPacket()) return;
+
+        String responseAddress = formatFullAddress(response.address());
+
+        if (this.redirectionMaps.containsKey(responseAddress)) {
+            response.setCode(302);
+            emptyHeaders(response.headers());
+            response.headers().set("Location", this.redirectionMaps.get(responseAddress));
+            response.headers().set("Access-Control-Allow-Origin", "*");
+            response.setRaw("");
+        }
+    }
+
+    @Override
+    public Boolean isMITMAllowed(@NotNull FullAddress address) {
+        return true;
+    }
+
+    private String formatFullAddress(@NotNull FullAddress address) {
+        return address.getHost() + ":" + address.getPort();
+    }
+
+    private void emptyHeaders(@NotNull HttpHeaders headers) {
+        for (var headerName : headers.names()) {
+            headers.remove(headerName);
+        }
+    }
+
 }
