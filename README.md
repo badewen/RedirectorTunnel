@@ -13,6 +13,8 @@ www.growtopia1.com:443|https://google.com # this will send http redirects https:
 # To specify multiple mappings, use ';' as seperator
 github.com|https://www.google.com; w3.org|https://www.google.com; youtube.com|www.google.com
 ```
+# Building
+just run `gradlew build`
 
 # Limitations
 For Https traffic, you need to make sure you can connect to target host and the target host sends Http packet data back to you, 
